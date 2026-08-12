@@ -59,13 +59,15 @@ module Api
     # HACK: Format attrs to use accepts_nested_attributes_for (Entitlements)
     # Required for backwards compatibility of creating filters via group
     def parse_set_filters(data, entitlement_id: nil)
-      filters           = data.delete("filters")
-      filter_expression = data.delete("filter_expression")
-      filter_expression = filter_expression["exp"] if filter_expression && filter_expression["exp"]
-      if filters || filter_expression
+      filters_present           = data.key?("filters")
+      filter_expression_present = data.key?("filter_expression")
+      filters                   = data.delete("filters")
+      filter_expression         = data.delete("filter_expression")
+      filter_expression         = filter_expression["exp"] if filter_expression && filter_expression["exp"]
+      if filters_present || filter_expression_present
         entitlements = {"id" => entitlement_id}
-        entitlements["filters"]           = filters.stringify_keys.to_h          if filters
-        entitlements["filter_expression"] = MiqExpression.new(filter_expression) if filter_expression
+        entitlements["filters"]           = filters ? filters.stringify_keys.to_h : {} if filters_present
+        entitlements["filter_expression"] = filter_expression ? MiqExpression.new(filter_expression) : nil
         data["entitlement_attributes"] = entitlements
       end
     end
