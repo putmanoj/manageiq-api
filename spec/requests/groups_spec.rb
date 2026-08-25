@@ -394,10 +394,52 @@ describe "Groups API" do
       expect(group1.entitlement.filter_expression).to be_nil
     end
 
+    it "preserves existing filter_expression when edit specifies only filters" do
+      @user.miq_groups << group1
+      expression = MiqExpression.new("CONTAINS" => {"tag" => "managed-location", "value" => "ny"})
+      group1.create_entitlement(:filter_expression => expression)
+      api_basic_authorize collection_action_identifier(:groups, :edit)
+
+      filters = {"belongsto" => ["/managed/infra/1"]}
+
+      post(api_group_url(nil, group1), :params => gen_request(:edit, "filters" => filters))
+
+      expect(response).to have_http_status(:ok)
+      group1.reload
+      expect(group1.entitlement.filters).to eq(filters)
+      expect(group1.entitlement.filter_expression).to be_a(MiqExpression)
+      expect(group1.entitlement.filter_expression.exp).to eq(expression.exp)
+    end
+
+    it "preserves existing filters when edit specifies only filter_expression" do
+      @user.miq_groups << group1
+      filters = {"belongsto" => ["/managed/infra/1"]}
+      group1.create_entitlement(:filters => filters)
+      api_basic_authorize collection_action_identifier(:groups, :edit)
+
+      filter_expression = {
+        "exp" => {
+          "CONTAINS" => {
+            "tag"   => "managed-location",
+            "value" => "ny"
+          }
+        }
+      }
+
+      post(api_group_url(nil, group1), :params => gen_request(:edit, "filter_expression" => filter_expression))
+
+      expect(response).to have_http_status(:ok)
+      group1.reload
+      expect(group1.entitlement.filters).to eq(filters)
+      expect(group1.entitlement.filter_expression).to be_a(MiqExpression)
+      expect(group1.entitlement.filter_expression.exp).to eq(filter_expression["exp"])
+    end
+
     it "does not touch entitlement when neither filters nor filter_expression key is present" do
       @user.miq_groups << group1
-      existing_filters = {"managed" => [["/managed/area/1"]], "belongsto" => ["/managed/infra/1"]}
-      group1.create_entitlement(:filters => existing_filters)
+      existing_filters = {"belongsto" => ["/managed/infra/1"]}
+      existing_expression = MiqExpression.new("CONTAINS" => {"tag" => "managed-location", "value" => "ny"})
+      group1.create_entitlement(:filters => existing_filters, :filter_expression => existing_expression)
       api_basic_authorize collection_action_identifier(:groups, :edit)
 
       post(api_group_url(nil, group1), :params => gen_request(:edit, "description" => "renamed"))
@@ -405,7 +447,8 @@ describe "Groups API" do
       expect(response).to have_http_status(:ok)
       group1.reload
       expect(group1.entitlement.filters).to eq(existing_filters)
-      expect(group1.entitlement.filter_expression).to be_nil
+      expect(group1.entitlement.filter_expression).to be_a(MiqExpression)
+      expect(group1.entitlement.filter_expression.exp).to eq(existing_expression.exp)
     end
 
     it "rejects edit with managed filters and filter_expression" do
