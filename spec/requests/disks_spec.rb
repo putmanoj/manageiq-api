@@ -17,7 +17,7 @@ RSpec.describe "Disks API" do
         get(api_template_disks_url(nil, template))
 
         expected = {
-          "count"     => 2,
+          "count"     => 3,
           "name"      => "disks",
           "subcount"  => 1,
           "resources" => [
